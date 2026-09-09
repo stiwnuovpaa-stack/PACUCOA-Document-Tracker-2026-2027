@@ -169,7 +169,7 @@ input[type=date],select{border:1px solid var(--line);border-radius:7px;padding:7
   </div>
 
   <div class="dashboard-grid">
-    <div class="metric"><div class="icon">▤</div><strong id="mTotal">224</strong><span>Total documents • 28 per program</span></div>
+    <div class="metric"><div class="icon">▤</div><strong id="mTotal">218</strong><span>Total documents • 28 for most programs; 22 for BSHM</span></div>
     <div class="metric completed"><div class="icon">✓</div><strong id="mCompleted">0</strong><span>Completed</span></div>
     <div class="metric progress"><div class="icon">◷</div><strong id="mProgress">0</strong><span>In Progress</span></div>
     <div class="metric submitted"><div class="icon">↗</div><strong id="mSubmitted">0</strong><span>Submitted</span></div>
@@ -232,7 +232,7 @@ input[type=date],select{border:1px solid var(--line);border-radius:7px;padding:7
 <div class="modal" id="modal">
  <div class="modal-card">
    <h2>Tracker Instructions</h2>
-   <p>This PACUCOA tracker contains <b>28 requirements × 8 programs = 224 monitoring records</b>, with a Document Type field for Softcopy or Hardcopy.</p>
+   <p>This PACUCOA tracker contains <b>218 monitoring records</b> (28 requirements for most programs; 22 for BSHM)., with a Document Type field for Softcopy or Hardcopy.</p>
    <p><b>Document Type:</b> Select whether the submitted/required document is a <b>Softcopy</b> or <b>Hardcopy</b>.</p>
    <p><b>Status meaning:</b> Not Started = no submission yet; In Progress = currently being prepared; Submitted = submitted to the responsible office; For Revision = returned for correction; Completed = final/complete.</p>
    <button class="btn btn-blue" onclick="closeInstructions()">Close</button>
@@ -286,6 +286,12 @@ const docs=[
  ["Guidelines for Level IV","Criterion VI- Career Planning and Development for Students of the Program"],
  ["Executive Summary","Executive Summary"]
 ];
+function docsForProgram(p){
+  if(p==="Bachelor of Science in Hospitality Management"){
+    return docs.filter(([category])=>category!=="Guidelines for Level IV");
+  }
+  return docs;
+}
 const statuses=["Not Started","In Progress","Submitted","For Revision","Completed"];
 let state=JSON.parse(localStorage.getItem(LOCAL_CACHE_KEY)||"{}");
 let selectedProgram="";
@@ -353,9 +359,9 @@ async function loadCloud(){
    remarks:row.remarks||""
   };
  });
- // Ensure every one of the 224 UI records exists in the local state even if the SQL seed was not run yet.
+ // Ensure every UI record exists in the local state even if the SQL seed was not run yet.
  const missing=[];
- programs.forEach(([p,color])=>docs.forEach(([category,documentName])=>{
+ programs.forEach(([p,color])=>docsForProgram(p).forEach(([category,documentName])=>{
   const key=k(p,category,documentName);
   if(!state[key]){state[key]=blankRecord();missing.push({program_name:p,program_color:color,category,document_name:documentName,status:"Not Started",document_type:null,received:null,deadline:null,remarks:null})}
  }));
@@ -372,7 +378,7 @@ async function loadCloud(){
 async function saveNow(){
  if(!cloudReady){alert("Supabase is not connected. Add your Publishable Key and run the SQL setup first.");return}
  setConnectionStatus("● Saving all changes…",true);
- const rows=programs.flatMap(([p,color])=>docs.map(([category,documentName])=>{
+ const rows=programs.flatMap(([p,color])=>docsForProgram(p).map(([category,documentName])=>{
   const r=rec(p,category,documentName);
   return {program_name:p,program_color:color,category,document_name:documentName,status:r.status||"Not Started",document_type:r.documentType||null,received:r.received||null,deadline:r.deadline||null,remarks:r.remarks||null};
  }));
@@ -383,9 +389,9 @@ async function saveNow(){
  alert("PACUCOA tracker saved successfully to Supabase.");
 }
 async function resetTracker(){
- if(!confirm("Reset all 224 PACUCOA records? This will remove saved statuses, dates, deadlines, and remarks for everyone using this shared tracker."))return;
+ if(!confirm("Reset all PACUCOA records? This will remove saved statuses, dates, deadlines, and remarks for everyone using this shared tracker."))return;
  state={};
- programs.forEach(([p,color])=>docs.forEach(([category,documentName])=>{state[k(p,category,documentName)]=blankRecord()}));
+ programs.forEach(([p,color])=>docsForProgram(p).forEach(([category,documentName])=>{state[k(p,category,documentName)]=blankRecord()}));
  persistCache();
  renderAll(false);
  if(!cloudReady)return;
@@ -396,9 +402,9 @@ async function resetTracker(){
 }
 function renderPrograms(){
  const box=document.getElementById("programList");
- box.innerHTML='<button class="program-btn" style="background:#eef3f8;color:#062d5c" onclick="chooseProgram(\'\')">◉ All Programs<span class="pct">View all 224 records</span></button>';
+ box.innerHTML=`<button class="program-btn" style="background:#eef3f8;color:#062d5c" onclick="chooseProgram('')">◉ All Programs<span class="pct">View all ${programs.reduce((sum,[p])=>sum+docsForProgram(p).length,0)} records</span></button>`;
  programs.forEach(([p,c])=>{
-  const total=docs.length,done=docs.filter(([cat,d])=>rec(p,cat,d).status==="Completed").length;
+  const pDocs=docsForProgram(p),total=pDocs.length,done=pDocs.filter(([cat,d])=>rec(p,cat,d).status==="Completed").length;
   const b=document.createElement("button");b.className=`program-btn ${c} ${selectedProgram===p?"selected":""}`;
   b.onclick=()=>chooseProgram(p);
   b.innerHTML=`${esc(p)}<span class="pct">${Math.round(done/total*100)}% completed • ${done}/${total}</span>`;
@@ -417,7 +423,7 @@ function renderTable(){
  const {q,cat,st}=filters();let n=0,shown=0,lastCat="";
  programs.forEach(([p,color])=>{
   if(selectedProgram && p!==selectedProgram)return;
-  docs.forEach(([category,documentName])=>{
+  docsForProgram(p).forEach(([category,documentName])=>{
    const r=rec(p,category,documentName);
    const hay=(p+" "+category+" "+documentName+" "+r.remarks).toLowerCase();
    if(q&&!hay.includes(q))return;if(cat&&cat!==category)return;if(st&&st!==r.status)return;
@@ -453,7 +459,7 @@ function renderTable(){
 }
 function shortName(p){return p.replace("Bachelor of ","B. ").replace("Master in ","M. ").replace("PhD in ","PhD ")}
 function totals(){
- let total=programs.length*docs.length,completed=0,progress=0,submitted=0,revision=0;
+ let total=programs.reduce((sum,[p])=>sum+docsForProgram(p).length,0),completed=0,progress=0,submitted=0,revision=0;
  Object.values(state).forEach(r=>{if(r.status==="Completed")completed++;else if(r.status==="In Progress")progress++;else if(r.status==="Submitted")submitted++;else if(r.status==="For Revision")revision++});
  return {total,completed,progress,submitted,revision,pct:Math.round(completed/total*100)}
 }
@@ -472,7 +478,8 @@ function renderCharts(){
  const sc=document.getElementById("statusChart"),max=Math.max(...Object.values(counts),1);
  sc.innerHTML=statuses.map(s=>`<div class="chart-row"><b>${s}</b><div class="bar"><i style="width:${counts[s]/max*100}%;background:${colors[s]}"></i></div><span>${counts[s]}</span></div>`).join("");
  document.getElementById("programChart").innerHTML=programs.map(([p,c])=>{
-  const done=docs.filter(([cat,d])=>rec(p,cat,d).status==="Completed").length,pct=Math.round(done/docs.length*100);
+  const pDocs=docsForProgram(p);
+   const done=pDocs.filter(([cat,d])=>rec(p,cat,d).status==="Completed").length,pct=Math.round(done/pDocs.length*100);
   const col={"green":"#20a34a","blue":"#2587e8","yellow":"#e0bc00","pink":"#ee66b5"}[c];
   return `<div class="chart-row"><b>${esc(shortName(p))}</b><div class="bar"><i style="width:${pct}%;background:${col}"></i></div><span>${pct}%</span></div>`;
  }).join("");
@@ -483,7 +490,7 @@ function renderAll(scroll){
 }
 function exportCSV(){
  const rows=[["Program","Program Color","Category","Document / Requirement","Status","Document Type","Date Received","Deadline","Progress","Remarks"]];
- programs.forEach(([p,color])=>docs.forEach(([cat,d])=>{
+ programs.forEach(([p,color])=>docsForProgram(p).forEach(([cat,d])=>{
   const r=rec(p,cat,d);const prog=r.status==="Completed"?100:r.status==="Submitted"?80:r.status==="In Progress"?50:r.status==="For Revision"?35:0;
   rows.push([p,color,cat,d,r.status,r.documentType||"",r.received,r.deadline,prog+"%",r.remarks]);
  }));
